@@ -57,9 +57,9 @@ async function watchList(req,res){
             newList = {
                 userId: userId,
                 movieList: [movieId]
-              };
-              newList = await watchListModel.create(newList);
-              return res.status(201).send({ status: true, message: "movie is added successfully in watchList", data: newList });
+            };
+            newList = await watchListModel.create(newList);
+            return res.status(201).send({ status: true, message: "movie is added successfully in watchList", data: newList });
         }
         if(watchListId){
         if (!isValidObjectId(watchListId)) {
@@ -86,23 +86,26 @@ async function watchList(req,res){
 
 async function getWatchListData(req,res){
     try {
+        //getting user from params
         const userId = req.params.userId;
         if(!isValidObjectId(userId)){
             return res.status(400).send({status:false, message:"Not valid userId"});
         }
+        //finding weather user present in DB or not
         const find = await userModel.findById(userId);
         if(!find){
             return res.status(400).send({status:false, message:"user Not found"});
         }
+        //Authorising wheather correct user loged in or not
         if(userId !== req.userId){
             return res.status(400).send({status:false, message:"Not authorised"});
         }
+        //checking weather is present in watchList collection or not
         let userInWatchList = await watchListModel.findOne({userId:userId}).populate('userId')
-    
         if(!userInWatchList){
             return res.status(400).send({status:false, message:"No watchList is present for user"})
         }
-
+        //created a object for getting data from the user and watchList
         let obj = {
             userId : await userModel.findById(userId),
             movieList : []
@@ -123,10 +126,39 @@ async function updateWatchListMovies(req,res){
   try {
     //for remove movieList for the user
     let userId = req.params.userId;
-    
-    let movie = await movieModel.findOne()
+    let body = req.body;
+    if(!isValidObjectId(userId)){
+        return res.status(400).send({status:false, message:"please provide valid userId"});
+    }
+    //Authorisation
+    if(userId !== req.userId){
+        return res.status(400).send({status:false, message:"Not authorised"});
+    }
+    //finding weather user having watchList or not
+    let findWatchList = await watchListModel.findOne({userId:userId});
+    if(!findWatchList){
+        return res.status(400).send({status:false, message:"user Not found"});
+    }
+    const {movieId} = body;
+    //checking weather movieId is present or not
+    if (!isValid(movieId)) {
+        return res.status(400).send({status: false, message: "enter the movieId"});
+    }
+    //checking weather movie is present or not in DataBase
+    const movie = await movieModel.findById(movieId);
+    if(movie == null){
+        return res.status.status(400).send({status:false, message: "movie not found"})
+    }
+    //checking weather movie present in watchList collection or not
+    if(!findWatchList.movieList.includes(movieId)){
+        return res.status(400).send({status:false, message:"movie is not present in watchList"})
+    }
+    //updating the dataBase
+    let data = await watchListModel.findOneAndUpdate({_id:findWatchList._id},{$pull:{movieList:movieId}},{new:true});
+    return res.status(200).send({status:false, message:"movie removed successfully from watchList", data:data})
+
   } catch (error) {
-    
+    return res.status(500).send({status:false,message:error.message});
   }
 }
 
